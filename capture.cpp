@@ -8,8 +8,10 @@
 #include <signal.h>
 #include <fstream>
 #include <ftypeinfo>
+//#####################################################################
 
-// ####################### FOR SAVING THE XML  #######################
+
+// ####################### FOR SAVING THE XML CONTINUOUSLY #######################
 void *SaveImgThd(void *para)
 {
     while (bSaveRun)
@@ -26,13 +28,11 @@ void *SaveImgThd(void *para)
             imwrite(fileName, pRgb, compression_parameters);
             if (dayOrNight == "NIGHT")
             {
-                //to not archive the xml data leave this first part out
                 system("scripts/saveXMLData.sh &");
                 system("scripts/saveImageNight.sh &");
             }
             else
             {
-                //to not archive the xml data leave this first part out
                 system("scripts/saveXMLData.sh &");
                 system("scripts/saveImageDay.sh &");
             }
@@ -55,6 +55,56 @@ if (!bSaveRun)
         bSaveRun = false;
     }
 }
+//#####################################################################
+
+
+
+// ####################### FOR SAVING THE XML #######################
+void *SaveImgThd(void *para)
+{
+    while (bSaveRun)
+    {
+        pthread_mutex_lock(&mtx_SaveImg);
+        pthread_cond_wait(&cond_SatrtSave, &mtx_SaveImg)
+        bSavingImg = true;
+        if (pRgb.data)
+        {
+            cv::FileStorage fp("/path/to/allsky/repo/data_raw_live.xml", cv::FileStorage::WRITE);
+            fp << "pRgb" << pRgb;
+            fp.release();
+
+            imwrite(fileName, pRgb, compression_parameters);
+            if (dayOrNight == "NIGHT")
+            {
+                //to not archive the xml data leave this first part out
+                system("scripts/saveImageNight.sh &");
+            }
+            else
+            {
+                //to not archive the xml data leave this first part out
+                system("scripts/saveImageDay.sh &");
+            }
+        }
+        bSavingImg = false;
+        pthread_mutex_unlock(&mtx_SaveImg);
+    }
+
+    printf("save thread over\n");
+    return(void *)0;
+}
+
+
+// to save the xml data
+if (!bSaveRun)
+{
+    bSaveRun = true;
+    if (pthread_create(&thdSave, 0, SaveImgThd, 0) != 0)
+    {
+        bSaveRun = false;
+    }
+}
+// #####################################################################
+
 
 
 
@@ -90,3 +140,4 @@ void writeInfoRawLog(float temp_xml, int gain_xml, int bs_xml, int gam_xml, int 
 // to save the txt data
 writeInfoRawLog((float)ltemp / 10.0, asiGain, asiBrightness, asiGamma, asiWBR, asiWBB, bin, latitude, longitude, lastDayOrNight, (float)autoExp);
 
+//#####################################################################
